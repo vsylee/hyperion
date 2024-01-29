@@ -41,7 +41,7 @@ type PublicInitOptions<T> = Omit<T, keyof ALSharedInitOptions | 'react'>;
 export type InitOptions = Types.Options<
   ALSharedInitOptions &
   {
-    react: (ALSurface.InitOptions & ALTriggerFlowlet.InitOptions)['react'];
+    react?: (ALSurface.InitOptions & ALTriggerFlowlet.InitOptions)['react'];
     enableReactComponentVisitors?: boolean;
     componentNameValidator?: ComponentNameValidator;
     flowletPublisher?: PublicInitOptions<ALFlowletPublisher.InitOptions> | null;
@@ -57,7 +57,7 @@ export type InitOptions = Types.Options<
 
 export type InitResults = Readonly<{
   initOptions: InitOptions;
-  surfaceRenderer: ALSurface.ALSurfaceHOC;
+  surfaceRenderer: ALSurface.ALSurfaceHOC | null;
 }>;
 
 let cachedResults: InitResults | null = null;
@@ -83,7 +83,7 @@ export function init(options: InitOptions): boolean {
 
   if (typeof global !== 'undefined' && (global as Window)?.document?.createElement != null) {
     initFlowletTrackers(options.flowletManager);
-    options.triggerFlowlet && ALTriggerFlowlet.init({
+    options.triggerFlowlet && options.react && ALTriggerFlowlet.init({
       react: options.react,
       ...sharedOptions,
       ...options.triggerFlowlet,
@@ -94,31 +94,33 @@ export function init(options: InitOptions): boolean {
 
   // Enumerating the cases where we need react interception and visitors
   const reactOptions = options.react;
-  if (typeof reactOptions.enableInterceptDomElement !== 'boolean') {
-    reactOptions.enableInterceptDomElement =
-      options.surface.enableReactDomPropsExtension;
-  }
-  if (typeof reactOptions.enableInterceptClassComponentConstructor !== "boolean") {
-    reactOptions.enableInterceptClassComponentConstructor =
-      options.triggerFlowlet?.enableReactMethodFlowlet;
-  }
-  if (typeof reactOptions.enableInterceptClassComponentMethods !== "boolean") {
-    reactOptions.enableInterceptClassComponentMethods =
-      options.triggerFlowlet?.enableReactSetStateTracking ||
-      options.triggerFlowlet?.enableReactMethodFlowlet;
-  }
-  if (typeof reactOptions.enableInterceptFunctionComponentRender !== "boolean") {
-    reactOptions.enableInterceptFunctionComponentRender =
-      options.triggerFlowlet?.enableReactMethodFlowlet
-  }
-  if (
-    options.enableReactComponentVisitors ||
-    reactOptions.enableInterceptClassComponentConstructor ||
-    reactOptions.enableInterceptClassComponentMethods ||
-    reactOptions.enableInterceptDomElement ||
-    reactOptions.enableInterceptFunctionComponentRender
-  ) {
-    IReactComponent.init(options.react);
+  if (reactOptions) {
+    if (typeof reactOptions.enableInterceptDomElement !== 'boolean') {
+      reactOptions.enableInterceptDomElement =
+        options.surface.enableReactDomPropsExtension;
+    }
+    if (typeof reactOptions.enableInterceptClassComponentConstructor !== "boolean") {
+      reactOptions.enableInterceptClassComponentConstructor =
+        options.triggerFlowlet?.enableReactMethodFlowlet;
+    }
+    if (typeof reactOptions.enableInterceptClassComponentMethods !== "boolean") {
+      reactOptions.enableInterceptClassComponentMethods =
+        options.triggerFlowlet?.enableReactSetStateTracking ||
+        options.triggerFlowlet?.enableReactMethodFlowlet;
+    }
+    if (typeof reactOptions.enableInterceptFunctionComponentRender !== "boolean") {
+      reactOptions.enableInterceptFunctionComponentRender =
+        options.triggerFlowlet?.enableReactMethodFlowlet
+    }
+    if (
+      options.enableReactComponentVisitors ||
+      reactOptions.enableInterceptClassComponentConstructor ||
+      reactOptions.enableInterceptClassComponentMethods ||
+      reactOptions.enableInterceptDomElement ||
+      reactOptions.enableInterceptFunctionComponentRender
+    ) {
+      IReactComponent.init(reactOptions);
+    }
   }
 
   if (options.elementText) {
@@ -156,11 +158,11 @@ export function init(options: InitOptions): boolean {
 
   cachedResults = {
     initOptions: options,
-    surfaceRenderer: ALSurface.init({
+    surfaceRenderer: options.react ? ALSurface.init({
       react: options.react,
       ...sharedOptions,
       ...options.surface
-    }),
+    }) : null,
   };
 
   return true;
